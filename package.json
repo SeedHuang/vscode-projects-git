@@ -1,0 +1,63 @@
+{
+  "name": "git-batch-commit",
+  "displayName": "Git Batch Commit",
+  "description": "批量查看最近项目的 git 状态，AI 生成中文 commit message 并批量提交推送",
+  "version": "0.0.1",
+  "publisher": "your-publisher-name",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "git-batch", "title": "Git Batch", "icon": "resources/icon.svg" }
+      ]
+    },
+    "views": {
+      "git-batch": [
+        { "type": "webview", "id": "gitBatch.panel", "name": "批量提交" }
+      ]
+    },
+    "commands": [
+      { "command": "gitBatch.exportLogs", "title": "Git Batch: Export Logs" }
+    ],
+    "configuration": {
+      "title": "Git Batch Commit",
+      "properties": {
+        "gitBatch.ollamaUrl": { "type": "string", "default": "http://localhost:11434", "description": "Ollama HTTP 地址" },
+        "gitBatch.ollamaModel": { "type": "string", "default": "qwen3-4b-instruct-2507", "description": "模型名（ollama list 可查）" },
+        "gitBatch.commitConcurrency": { "type": "number", "default": 3, "description": "批量提交并发上限" },
+        "gitBatch.maxDiffChars": { "type": "number", "default": 8000, "description": "喂给模型的 diff 截断阈值" },
+        "gitBatch.ollamaTimeoutMs": { "type": "number", "default": 30000, "description": "单项目生成超时（毫秒）" },
+        "gitBatch.confirmBeforePush": { "type": "boolean", "default": true, "description": "push 前需二次确认（不可逆保护）" },
+        "gitBatch.confirmBeforeCommit": { "type": "boolean", "default": true, "description": "批量 commit 前显示 diff 总览摘要" }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "vsce package --no-dependencies",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sql.js": "^1.11.0",
+    "styled-components": "^6.1.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/sql.js": "^1.4.9",
+    "@types/vscode": "1.85.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

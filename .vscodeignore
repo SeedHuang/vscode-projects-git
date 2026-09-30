@@ -1,0 +1,12 @@
+src/**
+node_modules/**
+test/**
+docs/**
+.eslintrc.json
+.eslintrc.js
+.prettierrc
+.github/**
+.gitignore
+.superpowers/**
+**/*.map
+*.tsbuildinfo
