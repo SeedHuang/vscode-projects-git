@@ -8,5 +8,7 @@ docs/**
 .github/**
 .gitignore
 .superpowers/**
+esbuild.js
+vitest.config.ts
 **/*.map
 *.tsbuildinfo

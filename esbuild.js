@@ -4,8 +4,8 @@ const path = require("path");
 
 const watch = process.argv.includes("--watch");
 
-/** Task 15 之前 webview 入口不存在，关闭双入口；Task 15 创建入口后翻为 true */
-const WEBVIEW_READY = false;
+/** Task 15 已创建 webview 入口；开双入口构建 */
+const WEBVIEW_READY = true;
 
 /** extension host 入口（cjs） */
 const extensionBuild = {

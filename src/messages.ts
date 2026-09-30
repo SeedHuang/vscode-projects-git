@@ -51,7 +51,8 @@ export type HostMessage =
   | { type: "regenerate"; path: string }
   | { type: "setMessage"; path: string; message: string; ackId: string }
   | { type: "commit"; paths: string[] }
-  | { type: "push"; path: string };
+  | { type: "push"; path: string }
+  | { type: "dispose" };
 
 /** Host → Webview */
 export type WebviewMessage =
@@ -60,7 +61,8 @@ export type WebviewMessage =
   | { type: "streamDone"; path: string; message: string }
   | { type: "status"; path: string; phase: ProjectStatus; error?: string }
   | { type: "ack"; ackId: string }
-  | { type: "ollamaState"; connected: boolean };
+  | { type: "ollamaState"; connected: boolean }
+  | { type: "batchDone"; ok: number; commitFailed: number; pushFailed: number };
 
 /** 前置检查结果（spec §11.4） */
 export interface PrereqReport {
