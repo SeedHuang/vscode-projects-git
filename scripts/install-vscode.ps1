@@ -173,12 +173,10 @@ if (-not $Restart) {
 
 # --- 5. verify extension dir ---
 Write-Step "Verifying extension directory..."
-# Avoid ConvertFrom-Json on package.json here: PowerShell 5.1 misreads Chinese
-# fields without BOM. Use regex to read name + version (no encoding dependency).
-$pkgJson = Get-Content (Join-Path $repoRoot "package.json") -Raw
-$nameMatch = [regex]::Match($pkgJson, '"name"\s*:\s*"([^"]+)"')
-$verMatch  = [regex]::Match($pkgJson, '"version"\s*:\s*"([^"]+)"')
-$dirName = "{0}-{1}" -f $nameMatch.Groups[1].Value, $verMatch.Groups[1].Value
+# Reuse name+version we already parsed from package.json at the top of this script
+# (avoid re-reading + re-parsing the same JSON twice). See header comment for why
+# we avoid ConvertFrom-Json (BOM-safe regex reads).
+$dirName = "{0}-{1}" -f $extName, $extVer
 $extDir = Join-Path $env:USERPROFILE (".vscode\extensions\" + $dirName)
 
 if (Test-Path (Join-Path $extDir "dist\extension.js")) {

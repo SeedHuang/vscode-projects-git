@@ -103,10 +103,22 @@ if (-not (Test-Path $extRoot)) {
 Write-Ok "Trae: $traeExe"
 Write-Ok "Extension dir: $extRoot"
 
-# --- 1. ensure vsix exists ---
+# --- 1. read package.json for name + version + publisher (regex, no JSON parse — avoids BOM issues) ---
 $repoRoot = (git rev-parse --show-toplevel).Trim()
-# $vsixFullPath is computed below from package.json name+version (single source of truth).
+$pkgJson = Get-Content (Join-Path $repoRoot "package.json") -Raw
+$nameMatch = [regex]::Match($pkgJson, '"name"\s*:\s*"([^"]+)"')
+$verMatch  = [regex]::Match($pkgJson, '"version"\s*:\s*"([^"]+)"')
+$pubMatch  = [regex]::Match($pkgJson, '"publisher"\s*:\s*"([^"]+)"')
+$extName = $nameMatch.Groups[1].Value
+$extVer  = $verMatch.Groups[1].Value
+$extPub  = $pubMatch.Groups[1].Value
+$dirName = "{0}.{1}-{2}" -f $extPub, $extName, $extVer
+$targetDir = Join-Path $extRoot $dirName
+$vsixFullPath = Join-Path $repoRoot ("build\" + $extName + "-" + $extVer + ".vsix")
 
+Write-Ok ("Target dir name: " + $dirName)
+
+# --- 2. ensure vsix exists ---
 if (-not (Test-Path $vsixFullPath) -or $Rebuild) {
     Write-Step "Building vsix..."
     Push-Location $repoRoot
@@ -124,20 +136,6 @@ if (-not (Test-Path $vsixFullPath) -or $Rebuild) {
 }
 $size = (Get-Item $vsixFullPath).Length
 Write-Ok ("vsix ready (" + $size + " bytes): " + $vsixFullPath)
-
-# --- 2. read package.json to get name + version (regex, no JSON parse — avoids BOM issues) ---
-$pkgJson = Get-Content (Join-Path $repoRoot "package.json") -Raw
-$nameMatch = [regex]::Match($pkgJson, '"name"\s*:\s*"([^"]+)"')
-$verMatch  = [regex]::Match($pkgJson, '"version"\s*:\s*"([^"]+)"')
-$pubMatch  = [regex]::Match($pkgJson, '"publisher"\s*:\s*"([^"]+)"')
-$extName = $nameMatch.Groups[1].Value
-$extVer  = $verMatch.Groups[1].Value
-$extPub  = $pubMatch.Groups[1].Value
-$dirName = "{0}.{1}-{2}" -f $extPub, $extName, $extVer
-$targetDir = Join-Path $extRoot $dirName
-$vsixFullPath = Join-Path $repoRoot ("build\" + $extName + "-" + $extVer + ".vsix")
-
-Write-Ok ("Target dir name: " + $dirName)
 
 # --- 3. handle running Trae ---
 # Use the EXACT exe path we resolved in step 0 (not a name wildcard — Trae and

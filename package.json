@@ -49,8 +49,8 @@
     "vsix:install:vscode:restart": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-vscode.ps1 -Force -Rebuild -Restart",
     "vsix:install:trae": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-trae.ps1",
     "vsix:install:trae:restart": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-trae.ps1 -Restart",
-    "deploy:vscode": "npm run package && npm run vsix:install:vscode:restart",
-    "deploy:trae": "npm run package && npm run vsix:install:trae:restart"
+    "deploy:vscode": "npm run vsix:install:vscode:restart",
+    "deploy:trae": "npm run vsix:install:trae:restart"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -47,7 +47,7 @@ npm run vsix:install           # 装到当前 VSCode
 
 ```powershell
 npm run vsix:install:rebuild   # 重新打 vsix 并装
-npm run vsix:install:restart   # 装完顺手重启 VSCode 让 webview 出现
+npm run vsix:install:vscode:restart   # 装完顺手重启 VSCode 让 webview 出现
 ```
 
 > ⚠️ 装的时候如果 VSCode 在跑，脚本只会更新元数据，**真正的文件要等所有 VSCode 窗口都关掉再开才会拷进 extensions 目录**。脚本会检测并提示你退 VSCode，或者用 `-Restart` 标志让脚本帮你杀进程后重启。
@@ -156,7 +156,7 @@ npm run vsix:install -- -Force -Rebuild -Restart   # Windows PowerShell 传参�
 - **面板是空的**：你最近没在 VSCode / Trae 里打开过 git 项目。随便打开一个，回到面板等几秒让它扫
 - **生成 message 一直失败**：看 footer 状态条 + 命令面板 `Git Batch: Export Logs`。常见原因：Ollama 没起 / 端口不对 / 模型没 pull
 - **commit / push 失败**：项目列表里那张卡的徽章会变红，hover 上去有错误信息，单项目可以单卡说"重试"—— 不需要重新走批量
-- **VSCode 重启后还是看不到扩展**：`%USERPROFILE%\.vscode\extensions\git-batch-commit-<version>\` 应该有 `dist/extension.js` 和 `dist/webview.js`（目录名和 `package.json` 的 `name` + `version` 拼接），没有就说明装的时候有窗口没退干净。再跑一次 `vsix:install:restart`
+- **VSCode 重启后还是看不到扩展**：`%USERPROFILE%\.vscode\extensions\git-batch-commit-<version>\` 应该有 `dist/extension.js` 和 `dist/webview.js`（目录名和 `package.json` 的 `name` + `version` 拼接），没有就说明装的时候有窗口没退干净。再跑一次 `vsix:install:vscode:restart`
 
 ---
 
