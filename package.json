@@ -32,8 +32,8 @@
         "gitBatch.commitConcurrency": { "type": "number", "default": 3, "description": "批量提交并发上限" },
         "gitBatch.maxDiffChars": { "type": "number", "default": 8000, "description": "喂给模型的 diff 截断阈值" },
         "gitBatch.ollamaTimeoutMs": { "type": "number", "default": 30000, "description": "单项目生成超时（毫秒）" },
-        "gitBatch.confirmBeforePush": { "type": "boolean", "default": true, "description": "push 前需二次确认（不可逆保护）" },
-        "gitBatch.confirmBeforeCommit": { "type": "boolean", "default": true, "description": "批量 commit 前显示 diff 总览摘要" }
+        "gitBatch.confirmBeforePush": { "type": "boolean", "default": true, "description": "push 前弹原生确认框（不可逆保护）" },
+        "gitBatch.confirmBeforeCommit": { "type": "boolean", "default": true, "description": "批量 commit 前弹原生确认框" }
       }
     }
   },
@@ -46,7 +46,9 @@
     "typecheck": "tsc --noEmit",
     "vsix:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-vscode.ps1 -Force",
     "vsix:install:rebuild": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-vscode.ps1 -Force -Rebuild",
-    "vsix:install:restart": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-vscode.ps1 -Force -Rebuild -Restart"
+    "vsix:install:restart": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-vscode.ps1 -Force -Rebuild -Restart",
+    "vsix:install:trae": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-trae.ps1",
+    "vsix:install:trae:restart": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-trae.ps1 -Restart"
   },
   "dependencies": {
     "react": "^18.3.1",

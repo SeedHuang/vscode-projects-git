@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   HeaderWrap,
   HeaderStats,
@@ -37,35 +36,6 @@ interface Props {
 }
 
 export function Header(p: Props) {
-  const [armedCommit, setArmedCommit] = useState(false);
-  const [armedPush, setArmedPush] = useState(false);
-
-  const armCommit = () => {
-    if (!armedCommit) {
-      setArmedCommit(true);
-      setTimeout(() => setArmedCommit(false), 3000);
-      return;
-    }
-    setArmedCommit(false);
-    p.onBatchCommit();
-  };
-  const armPush = () => {
-    if (!armedPush) {
-      setArmedPush(true);
-      setTimeout(() => setArmedPush(false), 3000);
-      return;
-    }
-    setArmedPush(false);
-    p.onBatchPush();
-  };
-
-  useEffect(() => {
-    if (p.busyCommit && armedCommit) setArmedCommit(false);
-  }, [p.busyCommit, armedCommit]);
-  useEffect(() => {
-    if (p.busyPush && armedPush) setArmedPush(false);
-  }, [p.busyPush, armedPush]);
-
   const selectTip =
     p.selectState === "all" ? "取消全选可见项" : "全选当前可见项";
 
@@ -127,39 +97,33 @@ export function Header(p: Props) {
         </IconBtn>
         <IconBtn
           $tone="primary"
-          onClick={armCommit}
+          onClick={p.onBatchCommit}
           disabled={!p.canCommit}
           data-tip={
-            armedCommit ? "再点一次确认批量提交" :
             p.busyCommit ? `正在提交 ${p.inFlightCommit ?? "?"} 个项目…` :
             !p.canCommit ? "没有可提交的项目（先勾选已有 message 的未提交项目）" :
             "批量提交：把勾选项目的临时改动落盘到本地仓库"
           }
           aria-label="批量提交"
-          style={armedCommit
-            ? { background: "var(--vscode-errorForeground)", color: "#fff", borderColor: "var(--vscode-errorForeground)" }
-            : p.busyCommit
-              ? { color: "var(--vscode-editorWarning-foreground)", borderColor: "var(--vscode-editorWarning-foreground)" }
-              : undefined}
+          style={p.busyCommit
+            ? { color: "var(--vscode-editorWarning-foreground)", borderColor: "var(--vscode-editorWarning-foreground)" }
+            : undefined}
         >
           {p.busyCommit ? <Spinner /> : <IconCommit />}
         </IconBtn>
         <IconBtn
           $tone="danger"
-          onClick={armPush}
+          onClick={p.onBatchPush}
           disabled={!p.canPush}
           data-tip={
-            armedPush ? "再点一次确认批量推送" :
             p.busyPush ? `正在推送 ${p.inFlightPush ?? "?"} 个项目…` :
             !p.canPush ? "没有可推送的项目（先勾选已提交但未 push 的项目）" :
             "批量推送：把勾选项目的本地提交推到远端"
           }
           aria-label="批量推送"
-          style={armedPush
-            ? { background: "var(--vscode-errorForeground)", color: "#fff", borderColor: "var(--vscode-errorForeground)" }
-            : p.busyPush
-              ? { color: "var(--vscode-editorWarning-foreground)", borderColor: "var(--vscode-editorWarning-foreground)" }
-              : undefined}
+          style={p.busyPush
+            ? { color: "var(--vscode-editorWarning-foreground)", borderColor: "var(--vscode-editorWarning-foreground)" }
+            : undefined}
         >
           {p.busyPush ? <Spinner /> : <IconPush />}
         </IconBtn>

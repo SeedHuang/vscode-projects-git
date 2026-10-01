@@ -3234,9 +3234,9 @@ Expected: `git-batch-commit-0.0.1.vsix` 生成（若 publisher 报错，用 `--s
 code --install-extension git-batch-commit-0.0.1.vsix
 ```
 
-- [ ] **Step 3: 安装到 Trae（UI 路径）**
+- [ ] **Step 3: 安装到 Trae**
 
-Trae 无稳定 CLI，走界面：扩展面板右上 `…` → `从 VSIX 安装…` → 选同一个 vsix。
+Trae 无 `--install-extension` CLI，直接操作扩展目录。脚本：`scripts/install-trae.ps1`（`npm run vsix:install:trae`，带 `-Restart` 自动杀进程+重启）。手动路径：扩展面板右上 `…` → `从 VSIX 安装…`。
 
 - [ ] **Step 4: §13 验收走查（按 spec 逐条记录实测值）**
 

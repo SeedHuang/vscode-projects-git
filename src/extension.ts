@@ -86,6 +86,8 @@ function readConfig() {
     commitConcurrency: cfg.get<number>("commitConcurrency", 3),
     maxDiffChars: cfg.get<number>("maxDiffChars", 8000),
     ollamaTimeoutMs: cfg.get<number>("ollamaTimeoutMs", 30000),
+    confirmBeforeCommit: cfg.get<boolean>("confirmBeforeCommit", true),
+    confirmBeforePush: cfg.get<boolean>("confirmBeforePush", true),
   };
 }
 
@@ -278,26 +280,65 @@ export function activate(context: vscode.ExtensionContext): void {
           break;
         case "commit":
           logLine(`recv commit for ${m.paths.length} paths`);
-          void commitCoordinator.commit(m.paths).then(async (s) => {
+          void (async () => {
+            if (cfg.confirmBeforeCommit && m.paths.length > 0) {
+              const pick = await vscode.window.showInformationMessage(
+                `确认批量提交 ${m.paths.length} 个项目？`,
+                { modal: true },
+                "确认提交",
+                "取消"
+              );
+              if (pick !== "确认提交") {
+                logLine(`commit cancelled by user at confirmation dialog`);
+                return;
+              }
+            }
+            const s = await commitCoordinator.commit(m.paths);
             logLine(`commit done: ok=${s.ok} commitFailed=${s.commitFailed} pushFailed=${s.pushFailed}`);
             emit({ type: "batchDone", ...s });
             // commit/push 真正改了 git 状态 → 追加一次 scan 重算 Tab 计数（commitCoordinator 内部已经 commit + push 全做了）
             await scanCoordinator.scan();
             logLine(`post-commit scan done`);
-          });
+          })();
           break;
         case "push":
           logLine(`recv push for ${m.path}`);
-          void commitCoordinator.pushOne(m.path).then(async () => {
+          void (async () => {
+            if (cfg.confirmBeforePush) {
+              const pick = await vscode.window.showInformationMessage(
+                `确认推送 ${m.path}？`,
+                { modal: true },
+                "确认推送",
+                "取消"
+              );
+              if (pick !== "确认推送") {
+                logLine(`push cancelled by user at confirmation dialog for ${m.path}`);
+                return;
+              }
+            }
+            await commitCoordinator.pushOne(m.path);
             await scanCoordinator.scan();
-          });
+          })();
           break;
         case "pushMany":
           logLine(`recv pushMany for ${m.paths.length} paths`);
-          void commitCoordinator.pushMany(m.paths).then(async (s) => {
+          void (async () => {
+            if (cfg.confirmBeforePush && m.paths.length > 0) {
+              const pick = await vscode.window.showInformationMessage(
+                `确认批量推送 ${m.paths.length} 个项目？`,
+                { modal: true },
+                "确认推送",
+                "取消"
+              );
+              if (pick !== "确认推送") {
+                logLine(`pushMany cancelled by user at confirmation dialog`);
+                return;
+              }
+            }
+            const s = await commitCoordinator.pushMany(m.paths);
             emit({ type: "batchDone", ...s });
             await scanCoordinator.scan();
-          });
+          })();
           break;
         case "dispose":
           ollama.abortAll();
