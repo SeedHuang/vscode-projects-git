@@ -57,6 +57,23 @@ export function resolveStateDbPath(
   return [home, ".config", name, "User", "globalStorage", "state.vscdb"].join("/");
 }
 
+/**
+ * 解析 storage.json 路径（VSCode 1.86+ 用来存最近项目的明文 JSON）。
+ * 与 state.vscdb 同一目录下的同名文件。
+ */
+export function resolveStorageJsonPath(
+  host: HostApp,
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform = process.platform
+): string | null {
+  const dbPath = resolveStateDbPath(host, env, platform);
+  if (!dbPath) return null;
+  // state.vscdb 和 storage.json 都在 globalStorage/ 下
+  const dir = dbPath.replace(/[\\/]state\.vscdb$/i, "");
+  if (platform === "win32") return join(dir, "storage.json");
+  return `${dir}/storage.json`;
+}
+
 /** 列出某 host+platform 的所有候选目录名（用于存在性回退） */
 export function candidateDirNames(host: HostApp, platform: NodeJS.Platform = process.platform): string[] {
   if (host === "unknown") return [];

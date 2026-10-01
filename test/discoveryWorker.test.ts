@@ -35,6 +35,9 @@ function makeDeps(overrides: Partial<DiscoveryDeps>, buf: Buffer): DiscoveryDeps
     createSql: makeSql,
     tmpCopy: async () => "/tmp/copy.db",
     unlink: async () => {},
+    readStorageJson: async () => null,
+    stateDbPath: "/tmp/state.vscdb",
+    storageJsonPath: null,
     ...overrides,
   };
 }
@@ -79,5 +82,53 @@ describe("discoverRecentProjects", () => {
     const buf = await makeDbBuffer({ entries: [] });
     const r = await discoverRecentProjects(makeDeps({}, buf));
     expect(r).toEqual([]);
+  });
+
+  it("新版：storage.json 优先于 state.vscdb（VSCode 1.86+ 路径）", async () => {
+    const buf = await makeDbBuffer(LIST); // db 里其实有 4 个
+    let storageCalled = false;
+    const r = await discoverRecentProjects(
+      makeDeps(
+        {
+          storageJsonPath: "/tmp/storage.json",
+          // 只要 storageJson 返非空就走它；stateDb 完全不看
+          stateDbPath: null,
+          readStorageJson: async () => {
+            storageCalled = true;
+            return {
+              profileAssociations: {
+                workspaces: {
+                  "file:///d%3A/code/alpha": "__default__profile__",
+                  "file:///d%3A/code/delta": "__default__profile__",
+                },
+              },
+              backupWorkspaces: { folders: [{ folderUri: "file:///d%3A/code/beta" }] },
+              windowsState: { lastActiveWindow: { folder: "file:///d%3A/code/gamma" } },
+            };
+          },
+        },
+        buf
+      )
+    );
+    expect(storageCalled).toBe(true);
+    // alpha 来自 workspaces；beta 来自 backupWorkspaces；gamma 来自 lastActiveWindow
+    // delta 在 workspaces 里但没 git 标记（默认 isGitRepo 不过滤）→ 保留
+    expect(r.map((p) => p.path)).toEqual([
+      "d:\\code\\alpha",
+      "d:\\code\\delta",
+      "d:\\code\\beta",
+      "d:\\code\\gamma",
+    ]);
+  });
+
+  it("storage.json 不可用时回退到 state.vscdb（旧版本路径）", async () => {
+    const buf = await makeDbBuffer(LIST);
+    const r = await discoverRecentProjects(
+      makeDeps(
+        { storageJsonPath: "/tmp/storage.json", readStorageJson: async () => null },
+        buf
+      )
+    );
+    expect(r.map((p) => p.path)).toEqual(["d:\\code\\alpha", "d:\\code\\beta"]);
   });
 });

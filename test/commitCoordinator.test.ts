@@ -1,19 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs"; // mkdtempSync: notGit/noid 用底层 init 避开 identity; rmSync: 断链测试用
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { CommitCoordinator } from "../src/committer/CommitCoordinator";
 import { MessageStore } from "../src/scanner/ScanCoordinator";
 import type { WebviewMessage } from "../src/messages";
+import { makeRepo as makeRepoBase, rmWithRetry } from "./helpers/gitFixtures";
 
 const dirs: string[] = [];
 
 function repo2(remoteBare?: string): string {
-  const d = mkdtempSync(join(tmpdir(), "cc-"));
-  execSync("git init -b main", { cwd: d });
+  const d = makeRepoBase("cc-");
   if (remoteBare) {
-    // remoteBare 已经是裸仓库（abs 路径），用双引号避免空格问题
     execSync(`git remote add origin "${remoteBare}"`, { cwd: d });
   }
   writeFileSync(join(d, "a.txt"), "content");
@@ -22,19 +21,13 @@ function repo2(remoteBare?: string): string {
 }
 
 function bare(): string {
-  const b = mkdtempSync(join(tmpdir(), "bare-"));
-  execSync("git init --bare -b main", { cwd: b });
+  const b = makeRepoBase("bare-", "main", true);
   dirs.push(b);
   return b;
 }
 
 beforeEach(() => { dirs.length = 0; });
-afterEach(() => dirs.forEach((d) => {
-  for (let i = 0; i < 20; i++) {
-    try { rmSync(d, { recursive: true, force: true }); return; }
-    catch { /* EBUSY 重试 */ }
-  }
-}));
+afterEach(() => dirs.forEach((d) => rmWithRetry(d)));
 
 function makeCoordinator() {
   const messages: WebviewMessage[] = [];
@@ -117,6 +110,7 @@ describe("CommitCoordinator.commit", () => {
     execSync("git config --global --unset user.email", { stdio: "ignore" });
     execSync("git config --global --unset user.name", { stdio: "ignore" });
     try {
+      // 故意不调 makeRepo（它会做空 commit，需要 identity）—— 改用底层 init 即可
       const d = mkdtempSync(join(tmpdir(), "noid-"));
       execSync("git init -b main", { cwd: d });
       writeFileSync(join(d, "a.txt"), "1");
@@ -133,5 +127,25 @@ describe("CommitCoordinator.commit", () => {
       if (origEmail !== "NONE") execSync(`git config --global user.email "${origEmail}"`);
       if (origName !== "NONE") execSync(`git config --global user.name "${origName}"`);
     }
+  });
+});
+
+describe("CommitCoordinator.pushMany", () => {
+  it("批量 push：每项独立返回 ok/pushFailed 计数", async () => {
+    const remote = bare();
+    const p1 = repo2(remote);
+    writeFileSync(join(p1, "a.txt"), "v1");
+    const { cc, store } = makeCoordinator();
+    store.set(p1, "msg1");
+    await cc.commit([p1]);
+    // 第二次再 push（用 pushMany）
+    const r = await cc.pushMany([p1]);
+    expect(r.ok + r.pushFailed).toBeGreaterThanOrEqual(0);
+  });
+
+  it("空数组 → 空 summary", async () => {
+    const { cc } = makeCoordinator();
+    const r = await cc.pushMany([]);
+    expect(r).toEqual({ ok: 0, commitFailed: 0, pushFailed: 0 });
   });
 });

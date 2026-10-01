@@ -9,6 +9,7 @@ export type ProjectStatus =
   | "ready_failed"
   | "committing"
   | "committed"
+  | "pushing"
   | "push_failed"
   | "push_ok"
   | "commit_failed";
@@ -49,9 +50,12 @@ export interface Project {
 export type HostMessage =
   | { type: "scan" }
   | { type: "regenerate"; path: string }
+  | { type: "regenMany"; paths: string[] }
   | { type: "setMessage"; path: string; message: string; ackId: string }
   | { type: "commit"; paths: string[] }
   | { type: "push"; path: string }
+  | { type: "pushMany"; paths: string[] }
+  | { type: "ready" }
   | { type: "dispose" };
 
 /** Host → Webview */
@@ -60,7 +64,7 @@ export type WebviewMessage =
   | { type: "stream"; path: string; chunk: string }
   | { type: "streamDone"; path: string; message: string }
   | { type: "status"; path: string; phase: ProjectStatus; error?: string }
-  | { type: "ack"; ackId: string }
+  | { type: "ack"; ackId: string; path?: string }
   | { type: "ollamaState"; connected: boolean }
   | { type: "batchDone"; ok: number; commitFailed: number; pushFailed: number };
 

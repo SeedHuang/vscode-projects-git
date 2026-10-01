@@ -7,6 +7,8 @@ interface Props {
   streaming: Record<string, string>;
   selected: Set<string>;
   ollamaConnected: boolean | null;
+  /** 哪些卡片正在等 setMessage 的 ack */
+  saving: Set<string>;
   onToggle(p: string): void;
   onMessage(p: string, msg: string): void;
   onRegenerate(p: string): void;
@@ -26,6 +28,7 @@ export function ProjectList(p: Props) {
             streaming={p.streaming[x.path]}
             checked={p.selected.has(x.path)}
             ollamaConnected={p.ollamaConnected}
+            saving={p.saving.has(x.path)}
             onToggle={() => p.onToggle(x.path)}
             onMessage={(msg) => p.onMessage(x.path, msg)}
             onRegenerate={() => p.onRegenerate(x.path)}

@@ -7,7 +7,9 @@
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other"],
   "main": "./dist/extension.js",
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:gitBatch.panel"
+  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -39,9 +41,12 @@
     "vscode:prepublish": "node esbuild.js",
     "compile": "node esbuild.js",
     "watch": "node esbuild.js --watch",
-    "package": "vsce package --no-dependencies",
+    "package": "vsce package --no-dependencies --out build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "vsix:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-vscode.ps1 -Force",
+    "vsix:install:rebuild": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-vscode.ps1 -Force -Rebuild",
+    "vsix:install:restart": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-vscode.ps1 -Force -Rebuild -Restart"
   },
   "dependencies": {
     "react": "^18.3.1",

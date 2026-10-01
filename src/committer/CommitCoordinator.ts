@@ -107,9 +107,19 @@ export class CommitCoordinator {
     await this.doPush(path, summary);
   }
 
+  /** 批量 push：与 commit 相同的并发限流；逐项独立报错 */
+  async pushMany(paths: string[]): Promise<CommitSummary> {
+    const summary: CommitSummary = { ok: 0, commitFailed: 0, pushFailed: 0 };
+    const unique = [...new Set(paths)];
+    if (unique.length === 0) return summary;
+    await Promise.all(unique.map((p) => this.limit(() => this.doPush(p, summary))));
+    return summary;
+  }
+
   private async doPush(path: string, summary: CommitSummary): Promise<void> {
     if (this.disposed) return;
     // 优先 plain push；有 upstream 时这样最稳；没有就 -u origin HEAD 建立
+    this.emitStatus(path, "pushing");
     const up = await runGit(path, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], 10000);
     const args = up.code === 0 ? ["push"] : ["push", "-u", "origin", "HEAD"];
     const push = await runGit(path, args, 120000);

@@ -1,30 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { execSync } from "node:child_process";
 import { runGit } from "../src/git/spawnGit";
+import { makeRepo, rmWithRetry } from "./helpers/gitFixtures";
 
 let repo: string;
 
-function initRepo(): string {
-  const dir = mkdtempSync(join(tmpdir(), "gitbatch-"));
-  execSync("git init -b main", { cwd: dir });
-  execSync('git -c user.email=t@t -c user.name=t commit --allow-empty -m init', { cwd: dir });
-  return dir;
-}
-
-function rmWithRetry(p: string): void {
-  // Windows: 子进程被 SIGKILL 后文件锁可能仍残留；vitest 并发跑也会撞锁
-  for (let i = 0; i < 20; i++) {
-    try { rmSync(p, { recursive: true, force: true }); return; }
-    catch { /* EBUSY 重试 */ }
-  }
-  // 最后再试一次，吞掉错误——测试结束时的 cleanup 不应该让 case 失败
-  try { rmSync(p, { recursive: true, force: true }); } catch { /* 仍被锁就放弃 */ }
-}
-
-beforeEach(() => { repo = initRepo(); });
+beforeEach(() => { repo = makeRepo("gitbatch-"); });
 afterEach(() => { rmWithRetry(repo); });
 
 describe("runGit", () => {
@@ -41,9 +21,7 @@ describe("runGit", () => {
   });
 
   it("含空格与中文的 cwd 可用", async () => {
-    const spaced = mkdtempSync(join(tmpdir(), "空格 repo-"));
-    execSync("git init -b main", { cwd: spaced });
-    execSync('git -c user.email=t@t -c user.name=t commit --allow-empty -m init', { cwd: spaced });
+    const spaced = makeRepo("空格 repo-");
     const r = await runGit(spaced, ["status", "--porcelain", "-b"]);
     expect(r.code).toBe(0);
     rmWithRetry(spaced);

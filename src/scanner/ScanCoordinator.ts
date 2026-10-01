@@ -26,8 +26,10 @@ export class ScanCoordinator {
   constructor(private deps: ScanDeps) {}
 
   abort(): void {
+    // 只 bump generation 作废 in-flight scan 路径上的检查点；
+    // 不再调 ollama.abortAll()——那是全局 worker 状态，会让后续 enqueue 全部失败。
+    // OllamaWorker 内部仍按 FIFO 串行处理，结果通过 generation 检查点丢弃。
     this.generation++;
-    this.deps.ollama.abortAll();
   }
 
   async scan(): Promise<void> {

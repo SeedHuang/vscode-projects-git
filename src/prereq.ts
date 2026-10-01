@@ -15,17 +15,26 @@ export class LogBuffer {
 export async function checkPrerequisites(
   cfg: { ollamaUrl: string },
   dbPath: string | null,
-  fileExists: (p: string) => Promise<boolean>
+  fileExists: (p: string) => Promise<boolean>,
+  trace?: (msg: string) => void
 ): Promise<PrereqReport> {
   const gitR = await runGit(process.cwd(), ["--version"], 5000);
+  trace?.(`prereq: git --version code=${gitR.code} stderr=${gitR.stderr.slice(0, 80)}`);
   let ollama = false;
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 2000);
-    const res = await fetch(`${cfg.ollamaUrl.replace(/\/$/, "")}/api/tags`, { signal: ctrl.signal });
+    const url = `${cfg.ollamaUrl.replace(/\/$/, "")}/api/tags`;
+    trace?.(`prereq: GET ${url}`);
+    const res = await fetch(url, { signal: ctrl.signal });
     clearTimeout(t);
+    trace?.(`prereq: ollama /api/tags status=${res.status}`);
     ollama = res.ok;
-  } catch { ollama = false; }
+  } catch (e) {
+    trace?.(`prereq: ollama fetch threw ${String(e instanceof Error ? e.message : e)}`);
+    ollama = false;
+  }
   const db = dbPath !== null && (await fileExists(dbPath));
+  trace?.(`prereq: db path=${dbPath ?? "<null>"} exists=${db}`);
   return { git: gitR.code === 0, ollama, db };
 }

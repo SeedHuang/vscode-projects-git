@@ -1,21 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { getGitStatuses } from "../src/scanner/GitStatusWorker";
+import { makeRepo as makeRepoBase, rmWithRetry } from "./helpers/gitFixtures";
 
 const repos: string[] = [];
 function makeRepo(setup: (dir: string) => void, branch = "main"): string {
-  const dir = mkdtempSync(join(tmpdir(), "gs-"));
-  execSync(`git init -b ${branch}`, { cwd: dir });
-  execSync('git -c user.email=t@t -c user.name=t commit --allow-empty -m init', { cwd: dir });
+  const dir = makeRepoBase("gs-", branch);
   setup(dir);
   repos.push(dir);
   return dir;
 }
 beforeEach(() => { repos.length = 0; });
-afterEach(() => repos.forEach((d) => rmSync(d, { recursive: true, force: true })));
+afterEach(() => repos.forEach((d) => rmWithRetry(d)));
 
 describe("getGitStatuses", () => {
   it("脏/干净/冲突三态", async () => {
@@ -48,6 +47,6 @@ describe("getGitStatuses", () => {
     const notGit = mkdtempSync(join(tmpdir(), "ng-"));
     const r = await getGitStatuses([notGit]);
     expect(r.has(notGit)).toBe(false);
-    rmSync(notGit, { recursive: true, force: true });
+    rmWithRetry(notGit);
   });
 });

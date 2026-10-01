@@ -15,6 +15,8 @@ export interface OllamaHooks {
   onDone(path: string, message: string): void;
   onFailed(path: string, reason: string): void;
   onFatal(reason: string): void;
+  /** 调试用日志回调（可选，不传则静默） */
+  _log?(msg: string): void;
 }
 
 export interface OllamaConfig {
@@ -35,7 +37,11 @@ export class OllamaWorker {
   ) {}
 
   enqueue(task: OllamaTask): void {
-    if (this.aborted) return;
+    if (this.aborted) {
+      this.hooks.onFailed?.(task.path, "aborted_before_enqueue");
+      return;
+    }
+    this.hooks._log?.(`enqueue ${task.path} queueLen=${this.queue.length + 1} aborted=${this.aborted} running=${this.running}`);
     this.queue.push(task);
     void this.pump();
   }
@@ -45,21 +51,31 @@ export class OllamaWorker {
   }
 
   abortAll(): void {
+    // 彻底关停：标记 aborted 并清空队列。
+    // 调用方负责 dispose / 不会再用此 worker。
     this.aborted = true;
     this.queue = [];
   }
 
+  /** 仅清空队列，不改 aborted 状态（用于 dispose 路径之外的「取消当前批」场景） */
+  clearQueue(): void {
+    this.queue = [];
+  }
+
   private async pump(): Promise<void> {
+    this.hooks._log?.(`pump enter running=${this.running} qLen=${this.queue.length}`);
     if (this.running) return;
     this.running = true;
     try {
       while (this.queue.length > 0) {
         const task = this.queue.shift()!;
+        this.hooks._log?.(`pump pop ${task.path}`);
         try {
-          const { prompt } = buildPrompt(
+          const { prompt, truncated } = buildPrompt(
             { statusLine: task.statusLine, diff: task.diff, fileList: task.fileList },
             this.cfg.maxDiffChars
           );
+          this.hooks._log?.(`pump buildPrompt url=${this.cfg.url} model=${this.cfg.model} promptLen=${prompt.length} truncated=${truncated}`);
           const text = await streamGenerate(
             this.cfg.url,
             { model: this.cfg.model, prompt, stream: true, options: { temperature: 0.2 } },
@@ -72,6 +88,7 @@ export class OllamaWorker {
             this.hooks.onDone(task.path, text.trim());
           }
         } catch (e) {
+          this.hooks._log?.(`pump catch ${task.path}: ${String(e instanceof Error ? (e.stack ?? e.message) : e)}`);
           if (e instanceof OllamaHttpError && e.status === 404) {
             this.hooks.onFailed(task.path, "model_not_found");
             this.queue = [];

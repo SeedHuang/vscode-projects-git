@@ -9,7 +9,9 @@ export function Footer(p: Props) {
     "Ollama 已连接";
   return (
     <FooterWrap>
-      <Dot $ok={p.ollamaConnected !== false} />
+      <Dot
+        $state={p.ollamaConnected === null ? "checking" : p.ollamaConnected ? "ok" : "fail"}
+      />
       <FooterText>{ollamaLabel}</FooterText>
       <FooterText style={{ marginLeft: "auto" }}>{p.lastBatch || "尚未批量提交"}</FooterText>
     </FooterWrap>
