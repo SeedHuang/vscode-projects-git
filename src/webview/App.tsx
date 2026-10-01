@@ -104,6 +104,16 @@ export default function App() {
     postHost({ type: "scan" });
   }, []);
 
+  // 卸载时清掉 rescan 的 setTimeout —— 避免 spinner 还在最小可见窗口里时
+  // App 被卸载，回调在已卸载组件上 setRescanBusy(false)（React 会 warn 并泄漏引用）。
+  // path-timers 由 usePathTimers 自带的清理 useEffect 兜底，这里只管 rescan。
+  useEffect(() => () => {
+    if (rescanTimerRef.current !== null) {
+      window.clearTimeout(rescanTimerRef.current);
+      rescanTimerRef.current = null;
+    }
+  }, []);
+
   // 用户手动改 message：标记 saving，等 host ack
   const handleSaveMessage = useCallback((path: string, msg: string) => {
     setSaving((s) => {

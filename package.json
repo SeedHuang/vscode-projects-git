@@ -41,14 +41,16 @@
     "vscode:prepublish": "node esbuild.js",
     "compile": "node esbuild.js",
     "watch": "node esbuild.js --watch",
-    "package": "vsce package --no-dependencies --out build",
+    "package": "node scripts/package.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "vsix:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-vscode.ps1 -Force",
     "vsix:install:rebuild": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-vscode.ps1 -Force -Rebuild",
-    "vsix:install:restart": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-vscode.ps1 -Force -Rebuild -Restart",
+    "vsix:install:vscode:restart": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-vscode.ps1 -Force -Rebuild -Restart",
     "vsix:install:trae": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-trae.ps1",
-    "vsix:install:trae:restart": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-trae.ps1 -Restart"
+    "vsix:install:trae:restart": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-trae.ps1 -Restart",
+    "deploy:vscode": "npm run package && npm run vsix:install:vscode:restart",
+    "deploy:trae": "npm run package && npm run vsix:install:trae:restart"
   },
   "dependencies": {
     "react": "^18.3.1",

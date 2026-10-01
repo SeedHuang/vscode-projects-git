@@ -33,8 +33,14 @@ $ErrorActionPreference = "Stop"
 
 # Locate repo root and vsix path
 $repoRoot = (git rev-parse --show-toplevel).Trim()
-# vsix is generated into build/ by `npm run package` (see package.json#scripts.package)
-$vsixFullPath = Join-Path $repoRoot "build\git-batch-commit-0.0.1.vsix"
+# Read name+version from package.json — single source of truth for the vsix filename.
+# Avoid hard-coding the version; bump it in package.json and the script follows.
+$pkgJson = Get-Content (Join-Path $repoRoot "package.json") -Raw
+$extNameMatch = [regex]::Match($pkgJson, '"name"\s*:\s*"([^"]+)"')
+$extVerMatch  = [regex]::Match($pkgJson, '"version"\s*:\s*"([^"]+)"')
+$extName = $extNameMatch.Groups[1].Value
+$extVer  = $extVerMatch.Groups[1].Value
+$vsixFullPath = Join-Path $repoRoot ("build\" + $extName + "-" + $extVer + ".vsix")
 
 function Write-Step { param($m) Write-Host ("[STEP] " + $m) -ForegroundColor Cyan }
 function Write-Ok   { param($m) Write-Host ("[OK]   " + $m) -ForegroundColor Green }

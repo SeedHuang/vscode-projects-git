@@ -30,15 +30,6 @@ export const Dot = styled.span<{ $state: "checking" | "ok" | "fail" }>`
     "#888"};
   transition: background 200ms ${easeOut};
 `;
-export const HBtn = styled.button`
-  background: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border: none; padding: 4px 12px; margin-left: 8px; cursor: pointer; border-radius: 2px;
-  transition: transform 160ms ${easeOut}, background 120ms ease;
-  &:hover { background: var(--vscode-button-secondaryHoverBackground); }
-  &:active { transform: scale(0.97); }
-  @media (prefers-reduced-motion: reduce) { transition: background 120ms ease; }
-`;
 
 /* icon-only 按钮（toolbar 用）。SVG 子元素接管尺寸，颜色继承 currentColor */
 export const IconBtn = styled.button<{ $tone?: "primary" | "danger" | "neutral" }>`

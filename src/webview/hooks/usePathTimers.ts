@@ -6,7 +6,7 @@
 // 重复点：arm / disarm / clearAll 三件套都对同一个 Map 操作。
 //
 // 本 hook 把这些机械动作收敛在这里，调用方只关心语义（"我要在 5 秒内拿到 ack"）。
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 export interface PathTimersApi {
   /** 起一个按路径索引的兜底 timer；到时若未 disarm 就调用 onTimeout。
@@ -21,7 +21,10 @@ export interface PathTimersApi {
 export function usePathTimers(): PathTimersApi {
   const timersRef = useRef<Map<string, number>>(new Map());
 
-  const arm = (path: string, ms: number, onTimeout: () => void) => {
+  // 各函数都包成 useCallback([])，闭包里的 timersRef 是稳定 ref；
+  // 同时用 useMemo 一次性返回 API 对象，让引用跨 render 稳定 —— 这样调用方把
+  // 它写进 useCallback 的 deps 时不会引起 handler 不必要地重建。
+  const arm = useCallback((path: string, ms: number, onTimeout: () => void) => {
     const existing = timersRef.current.get(path);
     if (existing !== undefined) clearTimeout(existing);
     const handle = window.setTimeout(() => {
@@ -29,21 +32,21 @@ export function usePathTimers(): PathTimersApi {
       onTimeout();
     }, ms);
     timersRef.current.set(path, handle);
-  };
+  }, []);
 
-  const disarm = (path: string) => {
+  const disarm = useCallback((path: string) => {
     const handle = timersRef.current.get(path);
     if (handle === undefined) return;
     clearTimeout(handle);
     timersRef.current.delete(path);
-  };
+  }, []);
 
-  const clearAll = () => {
+  const clearAll = useCallback(() => {
     for (const handle of timersRef.current.values()) clearTimeout(handle);
     timersRef.current.clear();
-  };
+  }, []);
 
-  useEffect(() => clearAll, []);
+  useEffect(() => clearAll, [clearAll]);
 
-  return { arm, disarm, clearAll };
+  return useMemo(() => ({ arm, disarm, clearAll }), [arm, disarm, clearAll]);
 }

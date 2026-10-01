@@ -105,7 +105,7 @@ Write-Ok "Extension dir: $extRoot"
 
 # --- 1. ensure vsix exists ---
 $repoRoot = (git rev-parse --show-toplevel).Trim()
-$vsixFullPath = Join-Path $repoRoot "build\git-batch-commit-0.0.1.vsix"
+# $vsixFullPath is computed below from package.json name+version (single source of truth).
 
 if (-not (Test-Path $vsixFullPath) -or $Rebuild) {
     Write-Step "Building vsix..."
@@ -135,6 +135,7 @@ $extVer  = $verMatch.Groups[1].Value
 $extPub  = $pubMatch.Groups[1].Value
 $dirName = "{0}.{1}-{2}" -f $extPub, $extName, $extVer
 $targetDir = Join-Path $extRoot $dirName
+$vsixFullPath = Join-Path $repoRoot ("build\" + $extName + "-" + $extVer + ".vsix")
 
 Write-Ok ("Target dir name: " + $dirName)
 
