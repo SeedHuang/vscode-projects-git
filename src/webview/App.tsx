@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Project, ProjectStatus, WebviewMessage } from "../messages";
 import { useExtensionMessage } from "./hooks/useExtensionMessage";
+import { usePathTimers } from "./hooks/usePathTimers";
 import { postHost } from "./postMessage";
 import { Shell, GlobalStyles } from "./sc";
 import { Header } from "./components/Header";
@@ -8,6 +9,13 @@ import { ProjectList } from "./components/ProjectList";
 import { Footer } from "./components/Footer";
 
 export type Filter = "all" | "uncommitted" | "unpushed" | "conflict";
+
+/** "全部重扫" 收到结果后 spinner 至少停留这么久，避免一闪而过 */
+const RESCAN_MIN_VISIBLE_MS = 800;
+/** setMessage 后等 ack 的兜底超时 */
+const SAVE_ACK_TIMEOUT_MS = 5000;
+/** 批量 commit 后等 host status 的兜底超时 */
+const COMMIT_STATUS_TIMEOUT_MS = 30000;
 
 export default function App() {
   const [items, setItems] = useState<Project[]>([]);
@@ -18,18 +26,18 @@ export default function App() {
   const [lastBatch, setLastBatch] = useState<string>("");
   /** 哪些卡片正在等 setMessage 的 ack —— ack 回来或超时都移除 */
   const [saving, setSaving] = useState<Set<string>>(new Set());
-  /** 保存超时 timer 集合，用于组件卸载或新保存时清理 */
-  const saveTimersRef = useRef<Map<string, number>>(new Map());
   /** 哪些项目已被乐观标记为"提交中"——点了提交按钮立刻置入，等真实 status 回来后移除。
       这样 Header spinner 在 host 弹模态确认框时就开始转，避免"点了没反应"的错觉。 */
   const [committingLocally, setCommittingLocally] = useState<Set<string>>(new Set());
-  /** 同上，超时 timer（兜底 host 永远不发 status 时清除） */
-  const commitTimersRef = useRef<Map<string, number>>(new Map());
-  /** "全部重扫" 进行中 —— 收到 projectList 后清零 + 1.5s 安全窗 */
+  /** "全部重扫" 进行中 —— 收到 projectList 后清零 + RESCAN_MIN_VISIBLE_MS 安全窗 */
   const [rescanBusy, setRescanBusy] = useState(false);
   const rescanTimerRef = useRef<number | null>(null);
   /** 点击重扫的时刻，用于计算「最小可见时间」避免 spinner 一闪而过 */
   const rescanStartedAtRef = useRef<number | null>(null);
+
+  // 两个独立的"按路径 timer"集合：saveTimers 等 ack、commitTimers 等 host status。
+  const saveTimers = usePathTimers();
+  const commitTimers = usePathTimers();
 
   const handleMessage = useCallback((m: WebviewMessage) => {
     switch (m.type) {
@@ -43,8 +51,7 @@ export default function App() {
         }
         const startedAt = rescanStartedAtRef.current ?? Date.now();
         const elapsed = Date.now() - startedAt;
-        const minVisible = 800;
-        const remaining = Math.max(0, minVisible - elapsed);
+        const remaining = Math.max(0, RESCAN_MIN_VISIBLE_MS - elapsed);
         rescanTimerRef.current = window.setTimeout(() => {
           setRescanBusy(false);
           rescanTimerRef.current = null;
@@ -59,15 +66,14 @@ export default function App() {
         break;
       case "status":
         setItems((xs) => xs.map((x) => (x.path === m.path ? { ...x, phase: m.phase, error: m.error } : x)));
-        // host 真实 status 到达 → 清除该路径的乐观"提交中"标记
+        // host 真实 status 到达 → 清除该路径的乐观"提交中"标记与兜底 timer
+        commitTimers.disarm(m.path);
         setCommittingLocally((s) => {
           if (!s.has(m.path)) return s;
           const next = new Set(s);
           next.delete(m.path);
           return next;
         });
-        const t = commitTimersRef.current.get(m.path);
-        if (t) { clearTimeout(t); commitTimersRef.current.delete(m.path); }
         break;
       case "ollamaState":
         setOllamaConnected(m.connected);
@@ -78,18 +84,17 @@ export default function App() {
       case "ack":
         // setMessage 的 ack：解除该卡片的 saving 锁定（按 path 精确移除）
         if (m.path) {
+          saveTimers.disarm(m.path);
           setSaving((s) => {
             if (!s.has(m.path!)) return s;
             const next = new Set(s);
             next.delete(m.path!);
             return next;
           });
-          const t = saveTimersRef.current.get(m.path);
-          if (t) { clearTimeout(t); saveTimersRef.current.delete(m.path); }
         }
         break;
     }
-  }, []);
+  }, [saveTimers, commitTimers]);
   useExtensionMessage(handleMessage);
 
   // 挂载即通知 host：让 host 重发 prereq 结果（避免 activate 时空打 ollamaState），
@@ -108,32 +113,16 @@ export default function App() {
       return next;
     });
     // 超时兜底：5 秒没收到 ack 就强制解除（防止 host 异常时按钮永远锁住）
-    const old = saveTimersRef.current.get(path);
-    if (old) clearTimeout(old);
-    const t = window.setTimeout(() => {
+    saveTimers.arm(path, SAVE_ACK_TIMEOUT_MS, () => {
       setSaving((s) => {
         if (!s.has(path)) return s;
         const next = new Set(s);
         next.delete(path);
         return next;
       });
-      saveTimersRef.current.delete(path);
-    }, 5000);
-    saveTimersRef.current.set(path, t);
+    });
     postHost({ type: "setMessage", path, message: msg, ackId: crypto.randomUUID() });
-  }, []);
-
-  // 卸载时清理所有 timer
-  useEffect(() => () => {
-    for (const t of saveTimersRef.current.values()) clearTimeout(t);
-    saveTimersRef.current.clear();
-    for (const t of commitTimersRef.current.values()) clearTimeout(t);
-    commitTimersRef.current.clear();
-    if (rescanTimerRef.current !== null) {
-      window.clearTimeout(rescanTimerRef.current);
-      rescanTimerRef.current = null;
-    }
-  }, []);
+  }, [saveTimers]);
 
   // "全部重扫" 包装：开 spinner → 发消息
   const handleRescan = useCallback(() => {
@@ -232,18 +221,14 @@ export default function App() {
             for (const p of batches.commitPaths) {
               next.add(p);
               // 兜底：30 秒没收到 host 的 status，强制清除（防 host 异常时永远转）
-              const old = commitTimersRef.current.get(p);
-              if (old) clearTimeout(old);
-              const t = window.setTimeout(() => {
+              commitTimers.arm(p, COMMIT_STATUS_TIMEOUT_MS, () => {
                 setCommittingLocally((cur) => {
                   if (!cur.has(p)) return cur;
                   const n = new Set(cur);
                   n.delete(p);
                   return n;
                 });
-                commitTimersRef.current.delete(p);
-              }, 30000);
-              commitTimersRef.current.set(p, t);
+              });
             }
             return next;
           });

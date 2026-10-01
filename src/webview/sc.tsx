@@ -22,12 +22,6 @@ export const HeaderWrap = styled.div`
 export const HeaderStats = styled.div`
   display: flex; align-items: center; gap: 8px; min-width: 0;
 `;
-export const StatPill = styled.span<{ $tone: "warn" | "info" }>`
-  padding: 1px 8px; border-radius: 10px; font-size: 11px;
-  ${({ $tone }) => $tone === "warn"
-    ? "background: rgba(204,120,50,0.18); color: var(--vscode-editorWarning-foreground);"
-    : "background: rgba(54,140,204,0.18); color: var(--vscode-editorInfo-foreground);"}
-`;
 export const Dot = styled.span<{ $state: "checking" | "ok" | "fail" }>`
   width: 8px; height: 8px; border-radius: 50%;
   background: ${({ $state }) =>
@@ -99,18 +93,6 @@ export const IconBtn = styled.button<{ $tone?: "primary" | "danger" | "neutral" 
     to   { opacity: 1; transform: translateY(0); }
   }
   @media (prefers-reduced-motion: reduce) { transition: background 120ms ease; }
-`;
-export const HBtnPrimary = styled(HBtn)<{ $danger?: boolean }>`
-  background: ${({ $danger }) => ($danger ? "var(--vscode-errorForeground)" : "var(--vscode-button-background)")};
-  color: ${({ $danger }) => ($danger ? "#fff" : "var(--vscode-button-foreground)")};
-  &:hover { background: ${({ $danger }) => ($danger ? "var(--vscode-errorForeground)" : "var(--vscode-button-hoverBackground)")}; }
-  &:disabled { opacity: 0.5; cursor: default; transform: none; }
-`;
-/** 与 HBtnPrimary 视觉一致，但默认偏中性（用于 push 这种有破坏性的批量动作） */
-export const HBtnDanger = styled(HBtn)<{ $danger?: boolean }>`
-  background: ${({ $danger }) => ($danger ? "var(--vscode-errorForeground)" : "var(--vscode-button-secondaryBackground)")};
-  color: ${({ $danger }) => ($danger ? "#fff" : "var(--vscode-button-secondaryForeground)")};
-  &:hover { background: ${({ $danger }) => ($danger ? "var(--vscode-errorForeground)" : "var(--vscode-button-secondaryHoverBackground)")}; }
 `;
 /* ---- Tab 行（Header 中间） ---- */
 export const TabRow = styled.div`
