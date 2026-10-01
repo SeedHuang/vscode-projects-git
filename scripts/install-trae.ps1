@@ -52,20 +52,23 @@ function Resolve-TraePaths {
         $exeName = Split-Path -Leaf $running.Path
         $match = $candidates | Where-Object { $exeName -ieq $_.Pattern } | Select-Object -First 1
         if (-not $match) {
-            Write-Warn ("Running Trae binary does not match any known pattern: " + $exeName)
+            Write-Warn ("Running Trae binary does not match any known pattern: " + $exeName + " — falling back to filesystem probe")
         } else {
+            Write-Step ("Resolved via process: " + $running.Path)
             return @{
                 TraeExe  = $running.Path
                 ExtRoot  = Join-Path $env:USERPROFILE (Join-Path $match.ProductDir "extensions")
             }
         }
+    } else {
+        Write-Step "No running Trae process — using filesystem probe"
     }
     # 2. Fallback: probe candidate installs. Order must match the candidate
     #    list above — a "Trae CN" candidate paired with a "Programs\TRAE SOLO CN"
     #    root would resolve to a non-existent directory and abort.
     $probeRoots = @(
-        (Join-Path $env:LOCALAPPDATA "Programs\Trae CN"),
         "D:\devtools\Trae CN",
+        (Join-Path $env:LOCALAPPDATA "Programs\Trae CN"),
         (Join-Path $env:LOCALAPPDATA "Programs\TRAE SOLO CN"),
         "D:\devtools\Trae SOLO CN"
     )
@@ -73,6 +76,7 @@ function Resolve-TraePaths {
         foreach ($cand in $candidates) {
             $exe = Join-Path $root $cand.Pattern
             if (Test-Path $exe) {
+                Write-Step ("Resolved via filesystem probe: " + $exe)
                 return @{
                     TraeExe = $exe
                     ExtRoot = Join-Path $env:USERPROFILE (Join-Path $cand.ProductDir "extensions")

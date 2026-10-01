@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Project, WebviewMessage } from "../messages";
+import type { Project, ProjectStatus, WebviewMessage } from "../messages";
 import { useExtensionMessage } from "./hooks/useExtensionMessage";
 import { postHost } from "./postMessage";
 import { Shell, GlobalStyles } from "./sc";
@@ -20,6 +20,11 @@ export default function App() {
   const [saving, setSaving] = useState<Set<string>>(new Set());
   /** 保存超时 timer 集合，用于组件卸载或新保存时清理 */
   const saveTimersRef = useRef<Map<string, number>>(new Map());
+  /** 哪些项目已被乐观标记为"提交中"——点了提交按钮立刻置入，等真实 status 回来后移除。
+      这样 Header spinner 在 host 弹模态确认框时就开始转，避免"点了没反应"的错觉。 */
+  const [committingLocally, setCommittingLocally] = useState<Set<string>>(new Set());
+  /** 同上，超时 timer（兜底 host 永远不发 status 时清除） */
+  const commitTimersRef = useRef<Map<string, number>>(new Map());
   /** "全部重扫" 进行中 —— 收到 projectList 后清零 + 1.5s 安全窗 */
   const [rescanBusy, setRescanBusy] = useState(false);
   const rescanTimerRef = useRef<number | null>(null);
@@ -54,6 +59,15 @@ export default function App() {
         break;
       case "status":
         setItems((xs) => xs.map((x) => (x.path === m.path ? { ...x, phase: m.phase, error: m.error } : x)));
+        // host 真实 status 到达 → 清除该路径的乐观"提交中"标记
+        setCommittingLocally((s) => {
+          if (!s.has(m.path)) return s;
+          const next = new Set(s);
+          next.delete(m.path);
+          return next;
+        });
+        const t = commitTimersRef.current.get(m.path);
+        if (t) { clearTimeout(t); commitTimersRef.current.delete(m.path); }
         break;
       case "ollamaState":
         setOllamaConnected(m.connected);
@@ -113,6 +127,8 @@ export default function App() {
   useEffect(() => () => {
     for (const t of saveTimersRef.current.values()) clearTimeout(t);
     saveTimersRef.current.clear();
+    for (const t of commitTimersRef.current.values()) clearTimeout(t);
+    commitTimersRef.current.clear();
     if (rescanTimerRef.current !== null) {
       window.clearTimeout(rescanTimerRef.current);
       rescanTimerRef.current = null;
@@ -164,19 +180,22 @@ export default function App() {
   // 三个批量按钮的"可执行"判定
   const batches = useMemo(() => {
     const selectedItems = items.filter((x) => selected.has(x.path));
+    // phase 处于"已收尾"（commit/push 阶段完结，不应再被批量操作碰）
+    const terminalPhases = new Set<ProjectStatus>(["committed", "committing", "pushing", "push_ok", "push_failed", "commit_failed"]);
     // 可生成：未提交且尚未有 message
     const canGenList = selectedItems.filter((x) =>
-      x.status && x.status.dirtiness !== "clean" && !x.message.trim()
+      x.status && x.status.dirtiness !== "clean" && !x.message.trim() && !terminalPhases.has(x.phase)
     );
-    // 可提交：未提交且已有 message
+    // 可提交：脏且已有 message、且不在任何已收尾阶段
     const canCommitList = selectedItems.filter((x) =>
-      x.status && x.status.dirtiness !== "clean" && !!x.message.trim()
+      x.status && x.status.dirtiness !== "clean" && !!x.message.trim() && !terminalPhases.has(x.phase)
     );
     // 可 push：已提交且未 push（phase === "committed" 表示 commit 落了但 push 没成/没推）
     const canPushList = selectedItems.filter((x) => x.phase === "committed");
     // 全局 in-flight 计数（不仅限勾选）—— Header loading 用
     const inFlightGen = items.filter((x) => x.phase === "generating").length;
-    const inFlightCommit = items.filter((x) => x.phase === "committing").length;
+    // 真实 committing + 乐观 committing（点击到 host 弹模态框/开跑之间）都算 busy
+    const inFlightCommit = items.filter((x) => x.phase === "committing").length + committingLocally.size;
     const inFlightPush = items.filter((x) => x.phase === "pushing").length;
     return {
       canGen: canGenList.length > 0,
@@ -192,7 +211,7 @@ export default function App() {
       inFlightCommit,
       inFlightPush,
     };
-  }, [items, selected]);
+  }, [items, selected, committingLocally]);
 
   return (
     <Shell>
@@ -207,6 +226,27 @@ export default function App() {
         onBatchGen={() => postHost({ type: "regenMany", paths: batches.genPaths })}
         onBatchCommit={() => {
           console.log(`[GitBatch] batch commit clicked, paths=${batches.commitPaths.length}:`, batches.commitPaths);
+          // 乐观置入 spinning：host 还没回 status 时，Header 已经显示 spinner
+          setCommittingLocally((s) => {
+            const next = new Set(s);
+            for (const p of batches.commitPaths) {
+              next.add(p);
+              // 兜底：30 秒没收到 host 的 status，强制清除（防 host 异常时永远转）
+              const old = commitTimersRef.current.get(p);
+              if (old) clearTimeout(old);
+              const t = window.setTimeout(() => {
+                setCommittingLocally((cur) => {
+                  if (!cur.has(p)) return cur;
+                  const n = new Set(cur);
+                  n.delete(p);
+                  return n;
+                });
+                commitTimersRef.current.delete(p);
+              }, 30000);
+              commitTimersRef.current.set(p, t);
+            }
+            return next;
+          });
           postHost({ type: "commit", paths: batches.commitPaths });
         }}
         onBatchPush={() => postHost({ type: "pushMany", paths: batches.pushPaths })}
